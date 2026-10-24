@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -21,11 +22,32 @@
 			font-synthesis: none;
 		}
 
-		* { box-sizing: border-box; }
-		html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-		body { color: var(--ink); background: #edf1ed; }
-		button, input, select { font: inherit; }
-		button { color: inherit; }
+		* {
+			box-sizing: border-box;
+		}
+
+		html,
+		body {
+			width: 100%;
+			height: 100%;
+			margin: 0;
+			overflow: hidden;
+		}
+
+		body {
+			color: var(--ink);
+			background: #edf1ed;
+		}
+
+		button,
+		input,
+		select {
+			font: inherit;
+		}
+
+		button {
+			color: inherit;
+		}
 
 		#workspace {
 			position: fixed;
@@ -36,16 +58,32 @@
 			background-size: 22px 22px;
 		}
 
-		.document-layer, #canvas-layer {
+		.document-layer,
+		#canvas-layer {
 			position: absolute;
 			inset: 0;
 			width: 100%;
 			height: 100%;
 		}
 
-		.document-layer { z-index: 2; background: #fff; visibility: hidden; }
-		.document-layer.active { visibility: visible; }
-		.document-layer iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+		.document-layer {
+			z-index: 2;
+			background: #fff;
+			visibility: hidden;
+		}
+
+		.document-layer.active {
+			visibility: visible;
+		}
+
+		.document-layer iframe {
+			display: block;
+			width: 100%;
+			height: 100%;
+			border: 0;
+			background: #fff;
+		}
+
 		#eraser-cursor {
 			position: fixed;
 			z-index: 20;
@@ -55,7 +93,11 @@
 			pointer-events: none;
 			transform: translate(-50%, -50%);
 		}
-		#eraser-cursor.visible { display: block; }
+
+		#eraser-cursor.visible {
+			display: block;
+		}
+
 		#canvas-layer {
 			z-index: 10;
 			display: block;
@@ -65,7 +107,11 @@
 			user-select: none;
 			pointer-events: auto;
 		}
-		#canvas-layer.document-on-top { z-index: 1; pointer-events: none; }
+
+		#canvas-layer.document-on-top {
+			z-index: 1;
+			pointer-events: none;
+		}
 
 		#empty-state {
 			position: absolute;
@@ -76,8 +122,18 @@
 			text-align: center;
 			pointer-events: none;
 		}
-		#empty-state strong { display: block; color: #3d5146; font: 500 26px Georgia, serif; }
-		#empty-state span { display: block; margin-top: 8px; font-size: 13px; }
+
+		#empty-state strong {
+			display: block;
+			color: #3d5146;
+			font: 500 26px Georgia, serif;
+		}
+
+		#empty-state span {
+			display: block;
+			margin-top: 8px;
+			font-size: 13px;
+		}
 
 		#toolbar {
 			position: fixed;
@@ -99,9 +155,19 @@
 			transition: opacity .18s ease, transform .18s ease;
 			scrollbar-width: none;
 		}
-		#toolbar::-webkit-scrollbar { display: none; }
-		#toolbar.is-hidden { opacity: 0; pointer-events: none; transform: translate(-50%, -140%); }
-		.tool-button, .system-button {
+
+		#toolbar::-webkit-scrollbar {
+			display: none;
+		}
+
+		#toolbar.is-hidden {
+			opacity: 0;
+			pointer-events: none;
+			transform: translate(-50%, -140%);
+		}
+
+		.tool-button,
+		.system-button {
 			display: inline-grid;
 			place-items: center;
 			flex: 0 0 auto;
@@ -113,27 +179,123 @@
 			background: transparent;
 			cursor: pointer;
 		}
-		.tool-button:hover, .system-button:hover { background: #eef3ef; }
-		.tool-button[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); border-color: #c6e0d4; }
-		.tool-button:focus-visible, .system-button:focus-visible, select:focus-visible, input:focus-visible, .primary:focus-visible {
+
+		.tool-button:hover,
+		.system-button:hover {
+			background: #eef3ef;
+		}
+
+		.tool-button[aria-pressed="true"] {
+			color: var(--accent);
+			background: var(--accent-soft);
+			border-color: #c6e0d4;
+		}
+
+		.tool-button:focus-visible,
+		.system-button:focus-visible,
+		select:focus-visible,
+		input:focus-visible,
+		.primary:focus-visible {
 			outline: 2px solid #28836b;
 			outline-offset: 2px;
 		}
-		.tool-button svg, .system-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-		.divider { width: 1px; height: 24px; flex: 0 0 1px; margin: 0 3px; background: var(--line); }
-		.size-control { display: flex; align-items: center; gap: 5px; padding: 0 5px; }
-		.size-control input { width: 84px; accent-color: var(--accent); }
-		#size-value { width: 30px; color: var(--muted); font-size: 12px; text-align: right; }
-		#color-picker { width: 30px; height: 30px; padding: 2px; border: 1px solid var(--line); border-radius: 6px; background: white; cursor: pointer; }
-		#color-picker::-webkit-color-swatch-wrapper { padding: 1px; }
-		#color-picker::-webkit-color-swatch { border: 0; border-radius: 3px; }
-		#color-picker::-moz-color-swatch { border: 0; border-radius: 3px; }
-		#document-select { width: 150px; max-width: 25vw; height: 36px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); }
-		#document-select:disabled { color: #8b958e; }
 
-		#system-controls { position: fixed; z-index: 40; top: 14px; right: 14px; display: flex; gap: 6px; }
-		.system-button { border-color: rgba(25, 55, 40, .12); background: var(--surface); box-shadow: 0 4px 15px rgba(29, 47, 37, .1); }
-		.system-button svg { width: 19px; height: 19px; }
+		.tool-button svg,
+		.system-button svg {
+			width: 20px;
+			height: 20px;
+			fill: none;
+			stroke: currentColor;
+			stroke-width: 1.8;
+			stroke-linecap: round;
+			stroke-linejoin: round;
+		}
+
+		.divider {
+			width: 1px;
+			height: 24px;
+			flex: 0 0 1px;
+			margin: 0 3px;
+			background: var(--line);
+		}
+
+		.size-control {
+			display: flex;
+			align-items: center;
+			gap: 5px;
+			padding: 0 5px;
+		}
+
+		.size-control input {
+			width: 84px;
+			accent-color: var(--accent);
+		}
+
+		#size-value {
+			width: 25px;
+			color: var(--muted);
+			font-size: 12px;
+			text-align: right;
+		}
+
+		#color-picker {
+			width: 30px;
+			height: 30px;
+			padding: 2px;
+			border: 1px solid var(--line);
+			border-radius: 6px;
+			background: white;
+			cursor: pointer;
+		}
+
+		#color-picker::-webkit-color-swatch-wrapper {
+			padding: 1px;
+		}
+
+		#color-picker::-webkit-color-swatch {
+			border: 0;
+			border-radius: 3px;
+		}
+
+		#color-picker::-moz-color-swatch {
+			border: 0;
+			border-radius: 3px;
+		}
+
+		#document-select {
+			width: 150px;
+			max-width: 25vw;
+			height: 36px;
+			padding: 0 8px;
+			border: 1px solid var(--line);
+			border-radius: 6px;
+			background: #fff;
+			color: var(--ink);
+		}
+
+		#document-select:disabled {
+			color: #8b958e;
+		}
+
+		#system-controls {
+			position: fixed;
+			z-index: 40;
+			top: 14px;
+			right: 14px;
+			display: flex;
+			gap: 6px;
+		}
+
+		.system-button {
+			border-color: rgba(25, 55, 40, .12);
+			background: var(--surface);
+			box-shadow: 0 4px 15px rgba(29, 47, 37, .1);
+		}
+
+		.system-button svg {
+			width: 19px;
+			height: 19px;
+		}
 
 		#settings-backdrop {
 			position: fixed;
@@ -144,7 +306,11 @@
 			padding: 18px;
 			background: rgba(19, 31, 24, .32);
 		}
-		#settings-backdrop[hidden] { display: none; }
+
+		#settings-backdrop[hidden] {
+			display: none;
+		}
+
 		.settings-panel {
 			width: min(560px, 100%);
 			max-height: min(720px, 92vh);
@@ -156,57 +322,279 @@
 			box-shadow: 0 24px 70px rgba(20, 35, 26, .24);
 			animation: panel-in .18s ease-out;
 		}
-		@keyframes panel-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-		.settings-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
-		.settings-heading h1 { margin: 0; font: 500 28px Georgia, serif; }
-		.settings-heading p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
-		.close-button { width: 34px; height: 34px; border: 0; border-radius: 6px; background: transparent; font-size: 22px; cursor: pointer; }
-		.close-button:hover { background: #edf1ed; }
-		.field-label { display: block; margin: 0 0 7px; color: #425148; font-size: 12px; font-weight: 650; }
-		.link-entry { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; }
-		.link-entry input { min-width: 0; height: 40px; padding: 0 10px; border: 1px solid #cdd6ce; border-radius: 5px; background: #fff; }
-		.primary { min-height: 40px; padding: 0 14px; border: 0; border-radius: 5px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
-		.primary:hover { background: #105846; }
-		.section-label { display: flex; align-items: center; justify-content: space-between; margin: 23px 0 9px; color: #48574d; font-size: 12px; font-weight: 650; }
-		#link-list { display: grid; gap: 7px; }
-		.link-row { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px; border: 1px solid #e0e6e0; border-radius: 6px; background: #fff; }
-		.link-details { flex: 1; min-width: 0; }
-		.link-name { display: block; overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-		.link-url { display: block; overflow: hidden; margin-top: 3px; color: #77837a; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-		.open-link { flex: 0 0 auto; color: var(--accent); font-size: 12px; text-decoration: none; }
-		.remove-link { flex: 0 0 auto; width: 30px; height: 30px; border: 0; border-radius: 5px; background: transparent; color: #8a5149; font-size: 18px; cursor: pointer; }
-		.remove-link:hover { background: #faece9; }
-		.empty-links { padding: 16px 10px; border: 1px dashed #cbd5cd; border-radius: 6px; color: #758178; font-size: 13px; text-align: center; }
-		.settings-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 19px; color: #78847b; font-size: 11px; }
 
-		#status { position: fixed; z-index: 45; bottom: 16px; left: 50%; padding: 8px 12px; border-radius: 5px; background: #202923; color: #fff; font-size: 12px; opacity: 0; pointer-events: none; transform: translate(-50%, 8px); transition: opacity .18s, transform .18s; }
-		#status.visible { opacity: 1; transform: translate(-50%, 0); }
+		@keyframes panel-in {
+			from {
+				opacity: 0;
+				transform: translateY(8px);
+			}
+
+			to {
+				opacity: 1;
+				transform: translateY(0);
+			}
+		}
+
+		.settings-heading {
+			display: flex;
+			align-items: flex-start;
+			justify-content: space-between;
+			gap: 16px;
+			margin-bottom: 22px;
+		}
+
+		.settings-heading h1 {
+			margin: 0;
+			font: 500 28px Georgia, serif;
+		}
+
+		.settings-heading p {
+			margin: 6px 0 0;
+			color: var(--muted);
+			font-size: 13px;
+		}
+
+		.close-button {
+			width: 34px;
+			height: 34px;
+			border: 0;
+			border-radius: 6px;
+			background: transparent;
+			font-size: 22px;
+			cursor: pointer;
+		}
+
+		.close-button:hover {
+			background: #edf1ed;
+		}
+
+		.field-label {
+			display: block;
+			margin: 0 0 7px;
+			color: #425148;
+			font-size: 12px;
+			font-weight: 650;
+		}
+
+		.link-entry {
+			display: grid;
+			grid-template-columns: 1fr 2fr auto;
+			gap: 8px;
+		}
+
+		.link-entry input {
+			min-width: 0;
+			height: 40px;
+			padding: 0 10px;
+			border: 1px solid #cdd6ce;
+			border-radius: 5px;
+			background: #fff;
+		}
+
+		.primary {
+			min-height: 40px;
+			padding: 0 14px;
+			border: 0;
+			border-radius: 5px;
+			background: var(--accent);
+			color: #fff;
+			font-size: 13px;
+			font-weight: 600;
+			cursor: pointer;
+		}
+
+		.primary:hover {
+			background: #105846;
+		}
+
+		.section-label {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			margin: 23px 0 9px;
+			color: #48574d;
+			font-size: 12px;
+			font-weight: 650;
+		}
+
+		#link-list {
+			display: grid;
+			gap: 7px;
+		}
+
+		.link-row {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			min-width: 0;
+			padding: 10px;
+			border: 1px solid #e0e6e0;
+			border-radius: 6px;
+			background: #fff;
+		}
+
+		.link-details {
+			flex: 1;
+			min-width: 0;
+		}
+
+		.link-name {
+			display: block;
+			overflow: hidden;
+			font-size: 13px;
+			font-weight: 600;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.link-url {
+			display: block;
+			overflow: hidden;
+			margin-top: 3px;
+			color: #77837a;
+			font-size: 11px;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.open-link {
+			flex: 0 0 auto;
+			color: var(--accent);
+			font-size: 12px;
+			text-decoration: none;
+		}
+
+		.remove-link {
+			flex: 0 0 auto;
+			width: 30px;
+			height: 30px;
+			border: 0;
+			border-radius: 5px;
+			background: transparent;
+			color: #8a5149;
+			font-size: 18px;
+			cursor: pointer;
+		}
+
+		.remove-link:hover {
+			background: #faece9;
+		}
+
+		.empty-links {
+			padding: 16px 10px;
+			border: 1px dashed #cbd5cd;
+			border-radius: 6px;
+			color: #758178;
+			font-size: 13px;
+			text-align: center;
+		}
+
+		.settings-footer {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			margin-top: 19px;
+			color: #78847b;
+			font-size: 11px;
+		}
+
+		#status {
+			position: fixed;
+			z-index: 45;
+			bottom: 16px;
+			left: 50%;
+			padding: 8px 12px;
+			border-radius: 5px;
+			background: #202923;
+			color: #fff;
+			font-size: 12px;
+			opacity: 0;
+			pointer-events: none;
+			transform: translate(-50%, 8px);
+			transition: opacity .18s, transform .18s;
+		}
+
+		#status.visible {
+			opacity: 1;
+			transform: translate(-50%, 0);
+		}
 
 		@media (max-width: 700px) {
-			#toolbar { top: 62px; left: 10px; right: 10px; max-width: none; transform: none; }
-			#toolbar.is-hidden { transform: translateY(-150%); }
-			#system-controls { top: 10px; right: 10px; }
-			#document-select { width: 120px; max-width: 32vw; }
-			.settings-panel { padding: 19px; }
-			.link-entry { grid-template-columns: 1fr auto; }
-			.link-entry #link-url { grid-column: 1 / -1; grid-row: 2; }
-			.link-entry .primary { grid-column: 2; grid-row: 1; }
-			.settings-footer { align-items: flex-start; flex-direction: column; }
+			#toolbar {
+				top: 62px;
+				left: 10px;
+				right: 10px;
+				max-width: none;
+				transform: none;
+			}
+
+			#toolbar.is-hidden {
+				transform: translateY(-150%);
+			}
+
+			#system-controls {
+				top: 10px;
+				right: 10px;
+			}
+
+			#document-select {
+				width: 120px;
+				max-width: 32vw;
+			}
+
+			.settings-panel {
+				padding: 19px;
+			}
+
+			.link-entry {
+				grid-template-columns: 1fr auto;
+			}
+
+			.link-entry #link-url {
+				grid-column: 1 / -1;
+				grid-row: 2;
+			}
+
+			.link-entry .primary {
+				grid-column: 2;
+				grid-row: 1;
+			}
+
+			.settings-footer {
+				align-items: flex-start;
+				flex-direction: column;
+			}
 		}
-		@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+		@media (prefers-reduced-motion: reduce) {
+
+			*,
+			*::before,
+			*::after {
+				animation-duration: .01ms !important;
+				transition-duration: .01ms !important;
+			}
+		}
 	</style>
 </head>
+
 <body>
 	<main id="workspace" aria-label="Presentation whiteboard">
 		<div id="document-layers"></div>
-		<div id="empty-state"><strong>Your workspace is ready</strong><span>Add a presentation or document in Settings.</span></div>
+		<div id="empty-state"><strong>Your workspace is ready</strong><span>Add a presentation or document in
+				Settings.</span></div>
 		<canvas id="canvas-layer" aria-label="Apple Pencil drawing canvas"></canvas>
 		<div id="eraser-cursor" aria-hidden="true"></div>
 	</main>
 
 	<nav id="toolbar" aria-label="Whiteboard tools">
-		<button id="mode-button" class="tool-button" type="button" aria-label="Switch to eraser" title="Pencil / eraser" aria-pressed="false">
-			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 16 10-10a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3l-7 7H8l-5-5Z"/><path d="m12 7 7 7M3 16h10"/></svg>
+		<button id="mode-button" class="tool-button" type="button" aria-label="Switch to eraser" title="Pencil / eraser"
+			aria-pressed="false">
+			<svg viewBox="0 0 24 24" aria-hidden="true">
+				<path d="m3 16 10-10a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3l-7 7H8l-5-5Z" />
+				<path d="m12 7 7 7M3 16h10" />
+			</svg>
 		</button>
 		<div class="divider" aria-hidden="true"></div>
 		<label class="size-control" title="Line weight">
@@ -218,34 +606,59 @@
 		</label>
 		<div class="divider" aria-hidden="true"></div>
 		<button id="clear-button" class="tool-button" type="button" aria-label="Clear canvas" title="Clear canvas">
-			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>
+			<svg viewBox="0 0 24 24" aria-hidden="true">
+				<path d="M4 7h16M10 11v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3" />
+			</svg>
 		</button>
-		<button id="save-button" class="tool-button" type="button" aria-label="Save canvas as image" title="Save canvas as PNG">
-			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg>
+		<button id="save-button" class="tool-button" type="button" aria-label="Save canvas as image"
+			title="Save canvas as PNG">
+			<svg viewBox="0 0 24 24" aria-hidden="true">
+				<path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4" />
+			</svg>
 		</button>
 		<div class="divider" aria-hidden="true"></div>
-		<select id="document-select" aria-label="Select document" disabled><option value="">No documents</option></select>
-		<button id="layer-button" class="tool-button" type="button" aria-label="Show drawing above document" title="Drawing above document" aria-pressed="true">
-			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h11v14H4zM9 9h11v10H9M7 8h5M12 12h5"/></svg>
+		<select id="document-select" aria-label="Select document" disabled>
+			<option value="">No documents</option>
+		</select>
+		<button id="layer-button" class="tool-button" type="button" aria-label="Show drawing above document"
+			title="Drawing above document" aria-pressed="true">
+			<svg viewBox="0 0 24 24" aria-hidden="true">
+				<path d="M4 5h11v14H4zM9 9h11v10H9M7 8h5M12 12h5" />
+			</svg>
 		</button>
-		<button id="settings-button" class="tool-button" type="button" aria-label="Settings and links" title="Settings and links">
-			<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.2 1-1.2 2.1-1.5-.6a8 8 0 0 1-1.5.9l-.2 1.6h-2.5l-.3-1.6a8 8 0 0 1-1.5-.9l-1.5.6-1.2-2.1 1.2-1a7 7 0 0 1 0-1.8l-1.2-1 1.2-2.1 1.5.6a8 8 0 0 1 1.5-.9l.3-1.6h2.5l.2 1.6a8 8 0 0 1 1.5.9l1.5-.6 1.2 2.1-1.2 1a7 7 0 0 1-.1 1.8Z" transform="translate(-1 -1)"/></svg>
+		<button id="settings-button" class="tool-button" type="button" aria-label="Settings and links"
+			title="Settings and links">
+			<svg viewBox="0 0 24 24" aria-hidden="true">
+				<circle cx="12" cy="12" r="3" />
+				<path
+					d="m19.4 15 .1.1 1.2 1-1.2 2.1-1.5-.6a8 8 0 0 1-1.5.9l-.2 1.6h-2.5l-.3-1.6a8 8 0 0 1-1.5-.9l-1.5.6-1.2-2.1 1.2-1a7 7 0 0 1 0-1.8l-1.2-1 1.2-2.1 1.5.6a8 8 0 0 1 1.5-.9l.3-1.6h2.5l.2 1.6a8 8 0 0 1 1.5.9l1.5-.6 1.2 2.1-1.2 1a7 7 0 0 1-.1 1.8Z"
+					transform="translate(-1 -1)" />
+			</svg>
 		</button>
 	</nav>
 
 	<div id="system-controls" aria-label="Display controls">
-		<button id="fullscreen-button" class="system-button" type="button" aria-label="Enter fullscreen" title="Fullscreen">
-			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4H4v4m12-4h4v4M4 16v4h4m12-4v4h-4"/></svg>
+		<button id="fullscreen-button" class="system-button" type="button" aria-label="Enter fullscreen"
+			title="Fullscreen">
+			<svg viewBox="0 0 24 24" aria-hidden="true">
+				<path d="M8 4H4v4m12-4h4v4M4 16v4h4m12-4v4h-4" />
+			</svg>
 		</button>
-		<button id="toolbar-button" class="system-button" type="button" aria-label="Hide toolbar" title="Hide toolbar" aria-pressed="false">
-			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+		<button id="toolbar-button" class="system-button" type="button" aria-label="Hide toolbar" title="Hide toolbar"
+			aria-pressed="false">
+			<svg viewBox="0 0 24 24" aria-hidden="true">
+				<path d="M4 6h16M4 12h16M4 18h16" />
+			</svg>
 		</button>
 	</div>
 
 	<div id="settings-backdrop" hidden>
 		<section class="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
 			<header class="settings-heading">
-				<div><h1 id="settings-title">Settings &amp; documents</h1><p>Your links and drawing preferences are saved on this device.</p></div>
+				<div>
+					<h1 id="settings-title">Settings &amp; documents</h1>
+					<p>Your links and drawing preferences are saved on this device.</p>
+				</div>
 				<button id="close-settings" class="close-button" type="button" aria-label="Close settings">×</button>
 			</header>
 			<form id="link-form">
@@ -258,7 +671,8 @@
 			</form>
 			<div class="section-label"><span>Saved documents</span><span id="link-count">0</span></div>
 			<div id="link-list" aria-live="polite"></div>
-			<footer class="settings-footer"><span>Documents open inside this workspace when the site allows embedding.</span><span>Preferences stored locally</span></footer>
+			<footer class="settings-footer"><span>Documents open inside this workspace when the site allows
+					embedding.</span><span>Preferences stored locally</span></footer>
 		</section>
 	</div>
 	<div id="status" role="status" aria-live="polite"></div>
@@ -502,7 +916,7 @@
 				const events = typeof event.getCoalescedEvents === 'function' ? event.getCoalescedEvents() : [event];
 				for (const pointEvent of events) {
 					const point = pointFrom(pointEvent);
-					if (settings.eraser) context.lineWidth = settings.size * eraserPressureScale(pointEvent.pressure)*10;
+					if (settings.eraser) context.lineWidth = settings.size * eraserPressureScale(pointEvent.pressure);
 					context.lineTo(point.x, point.y);
 					context.stroke();
 					context.beginPath();
@@ -515,7 +929,10 @@
 			}
 			elements.canvas.addEventListener('pointerup', stopDrawing);
 			elements.canvas.addEventListener('pointercancel', stopDrawing);
-			elements.canvas.addEventListener('pointerleave', () => elements.eraserCursor.classList.remove('visible'));
+			elements.canvas.addEventListener('pointerleave', () => {
+				lastPenPosition = null;
+				elements.eraserCursor.classList.remove('visible');
+			});
 			window.addEventListener('resize', resizeCanvas);
 
 			elements.modeButton.addEventListener('click', () => {
@@ -619,4 +1036,5 @@
 		})();
 	</script>
 </body>
+
 </html>
