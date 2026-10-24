@@ -46,6 +46,16 @@
 		.document-layer { z-index: 2; background: #fff; visibility: hidden; }
 		.document-layer.active { visibility: visible; }
 		.document-layer iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+		#eraser-cursor {
+			position: fixed;
+			z-index: 20;
+			display: none;
+			border: 1px dashed rgba(32, 41, 35, .85);
+			border-radius: 50%;
+			pointer-events: none;
+			transform: translate(-50%, -50%);
+		}
+		#eraser-cursor.visible { display: block; }
 		#canvas-layer {
 			z-index: 10;
 			display: block;
@@ -191,6 +201,7 @@
 		<div id="document-layers"></div>
 		<div id="empty-state"><strong>Your workspace is ready</strong><span>Add a presentation or document in Settings.</span></div>
 		<canvas id="canvas-layer" aria-label="Apple Pencil drawing canvas"></canvas>
+		<div id="eraser-cursor" aria-hidden="true"></div>
 	</main>
 
 	<nav id="toolbar" aria-label="Whiteboard tools">
@@ -258,6 +269,7 @@
 			const defaults = { links: [], selectedId: '', canvasOnTop: true, eraser: false, size: 3, color: '#202923', toolbarHidden: false };
 			const elements = {
 				canvas: document.getElementById('canvas-layer'),
+				eraserCursor: document.getElementById('eraser-cursor'),
 				documentLayers: document.getElementById('document-layers'),
 				emptyState: document.getElementById('empty-state'),
 				toolbar: document.getElementById('toolbar'),
@@ -284,6 +296,7 @@
 			const context = elements.canvas.getContext('2d');
 			let settings = loadSettings();
 			let drawing = false;
+			let lastPenPosition = null;
 			let statusTimer;
 
 			function loadSettings() {
@@ -400,6 +413,8 @@
 
 			function setCanvasOrder() {
 				elements.canvas.classList.toggle('document-on-top', !settings.canvasOnTop);
+				if (!settings.canvasOnTop) elements.eraserCursor.classList.remove('visible');
+				else if (settings.eraser && lastPenPosition) renderEraserCursor(lastPenPosition);
 				elements.layerButton.setAttribute('aria-pressed', String(settings.canvasOnTop));
 				elements.layerButton.title = settings.canvasOnTop ? 'Drawing above document' : 'Document above drawing';
 				elements.layerButton.setAttribute('aria-label', settings.canvasOnTop ? 'Show drawing above document' : 'Show document above drawing');
@@ -409,6 +424,8 @@
 				elements.modeButton.setAttribute('aria-pressed', String(settings.eraser));
 				elements.modeButton.setAttribute('aria-label', settings.eraser ? 'Switch to pencil' : 'Switch to eraser');
 				elements.modeButton.title = settings.eraser ? 'Eraser selected' : 'Pencil selected';
+				if (!settings.eraser) elements.eraserCursor.classList.remove('visible');
+				else if (lastPenPosition) renderEraserCursor(lastPenPosition);
 				elements.modeButton.innerHTML = settings.eraser
 					? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 16 10-10a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3l-7 7H8l-5-5Z"/><path d="m12 7 7 7M3 16h10M14 20h7"/></svg>'
 					: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16 10-10a2 2 0 0 1 3 0l3 3a2 2 0 0 1 0 3L10 22H7l-3-3a2 2 0 0 1 0-3Z"/><path d="m13 7 6 6M4 16h10"/></svg>';
@@ -443,26 +460,49 @@
 				return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
 			}
 
+			function eraserPressureScale(pressure) {
+				return 1 + Math.min(1, Math.max(0, pressure));
+			}
+
+			function renderEraserCursor(position) {
+				if (!settings.eraser || !settings.canvasOnTop) return;
+				const diameter = settings.size * eraserPressureScale(position.pressure);
+				elements.eraserCursor.style.width = `${diameter}px`;
+				elements.eraserCursor.style.height = `${diameter}px`;
+				elements.eraserCursor.style.left = `${position.clientX}px`;
+				elements.eraserCursor.style.top = `${position.clientY}px`;
+				elements.eraserCursor.classList.add('visible');
+			}
+
+			function updateEraserCursor(event) {
+				if (event.pointerType !== 'pen') return;
+				lastPenPosition = { clientX: event.clientX, clientY: event.clientY, pressure: event.pressure || 0 };
+				renderEraserCursor(lastPenPosition);
+			}
+
 			elements.canvas.addEventListener('pointerdown', event => {
 				if (event.pointerType !== 'pen' || !settings.canvasOnTop) return;
 				event.preventDefault();
 				elements.canvas.setPointerCapture(event.pointerId);
+				updateEraserCursor(event);
 				const point = pointFrom(event);
 				drawing = true;
 				context.beginPath();
 				context.moveTo(point.x, point.y);
 				context.globalCompositeOperation = settings.eraser ? 'destination-out' : 'source-over';
 				context.strokeStyle = settings.color;
-				context.lineWidth = settings.size * (event.pressure > 0 ? Math.max(.35, event.pressure) : 1);
+				context.lineWidth = settings.size * (settings.eraser ? eraserPressureScale(event.pressure) : (event.pressure > 0 ? Math.max(.35, event.pressure) : 1));
 				context.lineTo(point.x + .01, point.y + .01);
 				context.stroke();
 			});
 
 			elements.canvas.addEventListener('pointermove', event => {
+				updateEraserCursor(event);
 				if (!drawing || event.pointerType !== 'pen') return;
 				const events = typeof event.getCoalescedEvents === 'function' ? event.getCoalescedEvents() : [event];
 				for (const pointEvent of events) {
 					const point = pointFrom(pointEvent);
+					if (settings.eraser) context.lineWidth = settings.size * eraserPressureScale(pointEvent.pressure);
 					context.lineTo(point.x, point.y);
 					context.stroke();
 					context.beginPath();
@@ -475,6 +515,7 @@
 			}
 			elements.canvas.addEventListener('pointerup', stopDrawing);
 			elements.canvas.addEventListener('pointercancel', stopDrawing);
+			elements.canvas.addEventListener('pointerleave', () => elements.eraserCursor.classList.remove('visible'));
 			window.addEventListener('resize', resizeCanvas);
 
 			elements.modeButton.addEventListener('click', () => {
@@ -485,6 +526,7 @@
 			elements.sizeSlider.addEventListener('input', () => {
 				settings.size = Number(elements.sizeSlider.value);
 				elements.sizeValue.textContent = `${settings.size} px`;
+				if (lastPenPosition) renderEraserCursor(lastPenPosition);
 				persist();
 			});
 			elements.colorPicker.addEventListener('input', () => {
