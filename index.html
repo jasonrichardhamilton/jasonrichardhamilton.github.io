@@ -97,12 +97,22 @@
 
     <!-- JavaScript to power the live date and time in Block 1 -->
     <script>
-        function updateDateTime() {
+         function updateDateTime() {
             const clockElement = document.getElementById('live-clock');
             const now = new Date();
 
-            // Formats date and time nicely according to user's system locale
-            clockElement.textContent = now.toLocaleString();
+            const options = {
+                weekday: 'long',  // "Saturday"
+                month: 'long',    // "October"
+                day: 'numeric',   // "24"
+                year: 'numeric'   // "2026"
+            };
+
+            // "en-US" dictates the arrangement (e.g., Saturday, October 24, 2026)
+            // You can use 'default' instead of 'en-US' to use the user's system locale
+            const formattedDate = now.toLocaleDateString('en-US', options);
+
+            clockElement.textContent = formattedDate + ' at ' + now.toLocaleTimeString();
         }
 
         // Run the clock immediately on load
