@@ -413,7 +413,6 @@
 
 			function setCanvasOrder() {
 				elements.canvas.classList.toggle('document-on-top', !settings.canvasOnTop);
-				if (!settings.canvasOnTop) clearButton.click();
 				if (!settings.canvasOnTop) elements.eraserCursor.classList.remove('visible');
 				else if (settings.eraser && lastPenPosition) renderEraserCursor(lastPenPosition);
 				elements.layerButton.setAttribute('aria-pressed', String(settings.canvasOnTop));
