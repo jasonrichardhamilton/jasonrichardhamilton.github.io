@@ -123,7 +123,7 @@
 		.divider { width: 1px; height: 24px; flex: 0 0 1px; margin: 0 3px; background: var(--line); }
 		.size-control { display: flex; align-items: center; gap: 5px; padding: 0 5px; }
 		.size-control input { width: 84px; accent-color: var(--accent); }
-		#size-value { width: 25px; color: var(--muted); font-size: 12px; text-align: right; }
+		#size-value { width: 30px; color: var(--muted); font-size: 12px; text-align: right; }
 		#color-picker { width: 30px; height: 30px; padding: 2px; border: 1px solid var(--line); border-radius: 6px; background: white; cursor: pointer; }
 		#color-picker::-webkit-color-swatch-wrapper { padding: 1px; }
 		#color-picker::-webkit-color-swatch { border: 0; border-radius: 3px; }
@@ -413,6 +413,7 @@
 
 			function setCanvasOrder() {
 				elements.canvas.classList.toggle('document-on-top', !settings.canvasOnTop);
+				if (!settings.canvasOnTop) clearButton.click();
 				if (!settings.canvasOnTop) elements.eraserCursor.classList.remove('visible');
 				else if (settings.eraser && lastPenPosition) renderEraserCursor(lastPenPosition);
 				elements.layerButton.setAttribute('aria-pressed', String(settings.canvasOnTop));
@@ -461,12 +462,12 @@
 			}
 
 			function eraserPressureScale(pressure) {
-				return 1 + Math.min(1, Math.max(0, pressure*10));
+				return 1 + Math.min(1, Math.max(0, pressure));
 			}
 
 			function renderEraserCursor(position) {
 				if (!settings.eraser || !settings.canvasOnTop) return;
-				const diameter = settings.size * eraserPressureScale(position.pressure);
+				const diameter = settings.size * eraserPressureScale(position.pressure)*10;
 				elements.eraserCursor.style.width = `${diameter}px`;
 				elements.eraserCursor.style.height = `${diameter}px`;
 				elements.eraserCursor.style.left = `${position.clientX}px`;
@@ -502,7 +503,7 @@
 				const events = typeof event.getCoalescedEvents === 'function' ? event.getCoalescedEvents() : [event];
 				for (const pointEvent of events) {
 					const point = pointFrom(pointEvent);
-					if (settings.eraser) context.lineWidth = settings.size * eraserPressureScale(pointEvent.pressure);
+					if (settings.eraser) context.lineWidth = settings.size * eraserPressureScale(pointEvent.pressure)*10;
 					context.lineTo(point.x, point.y);
 					context.stroke();
 					context.beginPath();
