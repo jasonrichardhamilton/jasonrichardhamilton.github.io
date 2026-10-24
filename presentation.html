@@ -466,7 +466,7 @@
 
 			function renderEraserCursor(position) {
 				if (!settings.eraser || !settings.canvasOnTop) return;
-				const diameter = settings.size * eraserPressureScale(position.pressure)*10;
+				const diameter = settings.size * eraserPressureScale(position.pressure)*5;
 				elements.eraserCursor.style.width = `${diameter}px`;
 				elements.eraserCursor.style.height = `${diameter}px`;
 				elements.eraserCursor.style.left = `${position.clientX}px`;
