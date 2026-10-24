@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Title Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        h1 {
+            color: #2c3e50;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 600px;
+        }
+
+        /* Styling for the blocks */
+        .block {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-left: 5px solid #3498db;
+        }
+
+        .block h3 {
+            margin-top: 0;
+            color: #3498db;
+        }
+
+        /* Image styling inside the third block */
+        .clickable-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .clickable-image:hover {
+            transform: scale(1.02);
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Mr. Hamilton</h1>
+
+    <div class="container">
+
+        <!-- BLOCK 1: Current Date and Time -->
+        <div class="block" id="datetime-block">
+            <h3>Current Date & Time</h3>
+            <p id="live-clock">Loading date and time...</p>
+        </div>
+
+        <!-- BLOCK 2: Customizable Text -->
+        <div class="block" id="text-block">
+            <h3>Information</h3>
+            <!-- EDIT THE TEXT BELOW LATER -->
+            <p>This is placeholder text. You can change this text directly in the HTML file whenever you need to update
+                your information.</p>
+        </div>
+
+        <!-- BLOCK 3: Clickable Image Link -->
+        <div class="block" id="image-block">
+            <h3>Featured Link</h3>
+            <!-- EDIT THE href URL AND THE img src URL LATER -->
+            <a href="https://example.com" target="_blank">
+                <img src="https://placeholder.com" alt="Placeholder Image" class="clickable-image">
+            </a>
+        </div>
+
+        <!-- FUTURE BLOCKS CAN BE PASTED DIRECTLY BELOW THIS LINE -->
+
+    </div>
+
+    <!-- JavaScript to power the live date and time in Block 1 -->
+    <script>
+        function updateDateTime() {
+            const clockElement = document.getElementById('live-clock');
+            const now = new Date();
+
+            // Formats date and time nicely according to user's system locale
+            clockElement.textContent = now.toLocaleString();
+        }
+
+        // Run the clock immediately on load
+        updateDateTime();
+        // Update the clock every second
+        setInterval(updateDateTime, 1000);
+    </script>
+</body>
+
+</html>
