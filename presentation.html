@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+	<meta name="theme-color" content="#edf1ed">
+	<title>Slate | Presentation Whiteboard</title>
+	<style>
+		:root {
+			color-scheme: light;
+			--ink: #202923;
+			--muted: #64716a;
+			--line: #d8dfd9;
+			--surface: rgba(255, 255, 255, .94);
+			--accent: #176b58;
+			--accent-soft: #e1f0e9;
+			--shadow: 0 10px 30px rgba(29, 47, 37, .14);
+			font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+			font-synthesis: none;
+		}
+
+		* { box-sizing: border-box; }
+		html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+		body { color: var(--ink); background: #edf1ed; }
+		button, input, select { font: inherit; }
+		button { color: inherit; }
+
+		#workspace {
+			position: fixed;
+			inset: 0;
+			overflow: hidden;
+			background-color: #f5f6f2;
+			background-image: radial-gradient(#cbd4cc 0.7px, transparent 0.7px);
+			background-size: 22px 22px;
+		}
+
+		.document-layer, #canvas-layer {
+			position: absolute;
+			inset: 0;
+			width: 100%;
+			height: 100%;
+		}
+
+		.document-layer { z-index: 2; background: #fff; visibility: hidden; }
+		.document-layer.active { visibility: visible; }
+		.document-layer iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+		#canvas-layer {
+			z-index: 10;
+			display: block;
+			background: transparent;
+			touch-action: none;
+			-webkit-user-select: none;
+			user-select: none;
+			pointer-events: auto;
+		}
+		#canvas-layer.document-on-top { z-index: 1; pointer-events: none; }
+
+		#empty-state {
+			position: absolute;
+			left: 50%;
+			top: 50%;
+			transform: translate(-50%, -50%);
+			color: #78857c;
+			text-align: center;
+			pointer-events: none;
+		}
+		#empty-state strong { display: block; color: #3d5146; font: 500 26px Georgia, serif; }
+		#empty-state span { display: block; margin-top: 8px; font-size: 13px; }
+
+		#toolbar {
+			position: fixed;
+			z-index: 30;
+			top: 14px;
+			left: 50%;
+			display: flex;
+			align-items: center;
+			gap: 5px;
+			max-width: calc(100vw - 150px);
+			padding: 7px;
+			overflow-x: auto;
+			border: 1px solid rgba(25, 55, 40, .12);
+			border-radius: 9px;
+			background: var(--surface);
+			box-shadow: var(--shadow);
+			backdrop-filter: blur(14px);
+			transform: translateX(-50%);
+			transition: opacity .18s ease, transform .18s ease;
+			scrollbar-width: none;
+		}
+		#toolbar::-webkit-scrollbar { display: none; }
+		#toolbar.is-hidden { opacity: 0; pointer-events: none; transform: translate(-50%, -140%); }
+		.tool-button, .system-button {
+			display: inline-grid;
+			place-items: center;
+			flex: 0 0 auto;
+			width: 38px;
+			height: 38px;
+			padding: 0;
+			border: 1px solid transparent;
+			border-radius: 6px;
+			background: transparent;
+			cursor: pointer;
+		}
+		.tool-button:hover, .system-button:hover { background: #eef3ef; }
+		.tool-button[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); border-color: #c6e0d4; }
+		.tool-button:focus-visible, .system-button:focus-visible, select:focus-visible, input:focus-visible, .primary:focus-visible {
+			outline: 2px solid #28836b;
+			outline-offset: 2px;
+		}
+		.tool-button svg, .system-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+		.divider { width: 1px; height: 24px; flex: 0 0 1px; margin: 0 3px; background: var(--line); }
+		.size-control { display: flex; align-items: center; gap: 5px; padding: 0 5px; }
+		.size-control input { width: 84px; accent-color: var(--accent); }
+		#size-value { width: 25px; color: var(--muted); font-size: 12px; text-align: right; }
+		#color-picker { width: 30px; height: 30px; padding: 2px; border: 1px solid var(--line); border-radius: 6px; background: white; cursor: pointer; }
+		#color-picker::-webkit-color-swatch-wrapper { padding: 1px; }
+		#color-picker::-webkit-color-swatch { border: 0; border-radius: 3px; }
+		#color-picker::-moz-color-swatch { border: 0; border-radius: 3px; }
+		#document-select { width: 150px; max-width: 25vw; height: 36px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); }
+		#document-select:disabled { color: #8b958e; }
+
+		#system-controls { position: fixed; z-index: 40; top: 14px; right: 14px; display: flex; gap: 6px; }
+		.system-button { border-color: rgba(25, 55, 40, .12); background: var(--surface); box-shadow: 0 4px 15px rgba(29, 47, 37, .1); }
+		.system-button svg { width: 19px; height: 19px; }
+
+		#settings-backdrop {
+			position: fixed;
+			z-index: 50;
+			inset: 0;
+			display: grid;
+			place-items: center;
+			padding: 18px;
+			background: rgba(19, 31, 24, .32);
+		}
+		#settings-backdrop[hidden] { display: none; }
+		.settings-panel {
+			width: min(560px, 100%);
+			max-height: min(720px, 92vh);
+			overflow: auto;
+			padding: 24px;
+			border: 1px solid #dbe2dc;
+			border-radius: 10px;
+			background: #fbfcf9;
+			box-shadow: 0 24px 70px rgba(20, 35, 26, .24);
+			animation: panel-in .18s ease-out;
+		}
+		@keyframes panel-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+		.settings-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+		.settings-heading h1 { margin: 0; font: 500 28px Georgia, serif; }
+		.settings-heading p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+		.close-button { width: 34px; height: 34px; border: 0; border-radius: 6px; background: transparent; font-size: 22px; cursor: pointer; }
+		.close-button:hover { background: #edf1ed; }
+		.field-label { display: block; margin: 0 0 7px; color: #425148; font-size: 12px; font-weight: 650; }
+		.link-entry { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; }
+		.link-entry input { min-width: 0; height: 40px; padding: 0 10px; border: 1px solid #cdd6ce; border-radius: 5px; background: #fff; }
+		.primary { min-height: 40px; padding: 0 14px; border: 0; border-radius: 5px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+		.primary:hover { background: #105846; }
+		.section-label { display: flex; align-items: center; justify-content: space-between; margin: 23px 0 9px; color: #48574d; font-size: 12px; font-weight: 650; }
+		#link-list { display: grid; gap: 7px; }
+		.link-row { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px; border: 1px solid #e0e6e0; border-radius: 6px; background: #fff; }
+		.link-details { flex: 1; min-width: 0; }
+		.link-name { display: block; overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+		.link-url { display: block; overflow: hidden; margin-top: 3px; color: #77837a; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+		.open-link { flex: 0 0 auto; color: var(--accent); font-size: 12px; text-decoration: none; }
+		.remove-link { flex: 0 0 auto; width: 30px; height: 30px; border: 0; border-radius: 5px; background: transparent; color: #8a5149; font-size: 18px; cursor: pointer; }
+		.remove-link:hover { background: #faece9; }
+		.empty-links { padding: 16px 10px; border: 1px dashed #cbd5cd; border-radius: 6px; color: #758178; font-size: 13px; text-align: center; }
+		.settings-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 19px; color: #78847b; font-size: 11px; }
+
+		#status { position: fixed; z-index: 45; bottom: 16px; left: 50%; padding: 8px 12px; border-radius: 5px; background: #202923; color: #fff; font-size: 12px; opacity: 0; pointer-events: none; transform: translate(-50%, 8px); transition: opacity .18s, transform .18s; }
+		#status.visible { opacity: 1; transform: translate(-50%, 0); }
+
+		@media (max-width: 700px) {
+			#toolbar { top: 62px; left: 10px; right: 10px; max-width: none; transform: none; }
+			#toolbar.is-hidden { transform: translateY(-150%); }
+			#system-controls { top: 10px; right: 10px; }
+			#document-select { width: 120px; max-width: 32vw; }
+			.settings-panel { padding: 19px; }
+			.link-entry { grid-template-columns: 1fr auto; }
+			.link-entry #link-url { grid-column: 1 / -1; grid-row: 2; }
+			.link-entry .primary { grid-column: 2; grid-row: 1; }
+			.settings-footer { align-items: flex-start; flex-direction: column; }
+		}
+		@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+	</style>
+</head>
+<body>
+	<main id="workspace" aria-label="Presentation whiteboard">
+		<div id="document-layers"></div>
+		<div id="empty-state"><strong>Your workspace is ready</strong><span>Add a presentation or document in Settings.</span></div>
+		<canvas id="canvas-layer" aria-label="Apple Pencil drawing canvas"></canvas>
+	</main>
+
+	<nav id="toolbar" aria-label="Whiteboard tools">
+		<button id="mode-button" class="tool-button" type="button" aria-label="Switch to eraser" title="Pencil / eraser" aria-pressed="false">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 16 10-10a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3l-7 7H8l-5-5Z"/><path d="m12 7 7 7M3 16h10"/></svg>
+		</button>
+		<div class="divider" aria-hidden="true"></div>
+		<label class="size-control" title="Line weight">
+			<input id="size-slider" type="range" min="1" max="30" value="3" aria-label="Line weight">
+			<span id="size-value">3 px</span>
+		</label>
+		<label id="color-label" class="tool-button" title="Line color">
+			<input id="color-picker" type="color" value="#202923" aria-label="Line color">
+		</label>
+		<div class="divider" aria-hidden="true"></div>
+		<button id="clear-button" class="tool-button" type="button" aria-label="Clear canvas" title="Clear canvas">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>
+		</button>
+		<button id="save-button" class="tool-button" type="button" aria-label="Save canvas as image" title="Save canvas as PNG">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></svg>
+		</button>
+		<div class="divider" aria-hidden="true"></div>
+		<select id="document-select" aria-label="Select document" disabled><option value="">No documents</option></select>
+		<button id="layer-button" class="tool-button" type="button" aria-label="Show drawing above document" title="Drawing above document" aria-pressed="true">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h11v14H4zM9 9h11v10H9M7 8h5M12 12h5"/></svg>
+		</button>
+		<button id="settings-button" class="tool-button" type="button" aria-label="Settings and links" title="Settings and links">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.2 1-1.2 2.1-1.5-.6a8 8 0 0 1-1.5.9l-.2 1.6h-2.5l-.3-1.6a8 8 0 0 1-1.5-.9l-1.5.6-1.2-2.1 1.2-1a7 7 0 0 1 0-1.8l-1.2-1 1.2-2.1 1.5.6a8 8 0 0 1 1.5-.9l.3-1.6h2.5l.2 1.6a8 8 0 0 1 1.5.9l1.5-.6 1.2 2.1-1.2 1a7 7 0 0 1-.1 1.8Z" transform="translate(-1 -1)"/></svg>
+		</button>
+	</nav>
+
+	<div id="system-controls" aria-label="Display controls">
+		<button id="fullscreen-button" class="system-button" type="button" aria-label="Enter fullscreen" title="Fullscreen">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4H4v4m12-4h4v4M4 16v4h4m12-4v4h-4"/></svg>
+		</button>
+		<button id="toolbar-button" class="system-button" type="button" aria-label="Hide toolbar" title="Hide toolbar" aria-pressed="false">
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+		</button>
+	</div>
+
+	<div id="settings-backdrop" hidden>
+		<section class="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+			<header class="settings-heading">
+				<div><h1 id="settings-title">Settings &amp; documents</h1><p>Your links and drawing preferences are saved on this device.</p></div>
+				<button id="close-settings" class="close-button" type="button" aria-label="Close settings">×</button>
+			</header>
+			<form id="link-form">
+				<label class="field-label" for="link-name">Add a document</label>
+				<div class="link-entry">
+					<input id="link-name" type="text" maxlength="80" placeholder="Name (optional)" autocomplete="off">
+					<input id="link-url" type="url" placeholder="https://..." autocomplete="url" required>
+					<button class="primary" type="submit">Add link</button>
+				</div>
+			</form>
+			<div class="section-label"><span>Saved documents</span><span id="link-count">0</span></div>
+			<div id="link-list" aria-live="polite"></div>
+			<footer class="settings-footer"><span>Documents open inside this workspace when the site allows embedding.</span><span>Preferences stored locally</span></footer>
+		</section>
+	</div>
+	<div id="status" role="status" aria-live="polite"></div>
+
+	<script>
+		(() => {
+			const STORAGE_KEY = 'slate-whiteboard-settings-v1';
+			const defaults = { links: [], selectedId: '', canvasOnTop: true, eraser: false, size: 3, color: '#202923', toolbarHidden: false };
+			const elements = {
+				canvas: document.getElementById('canvas-layer'),
+				documentLayers: document.getElementById('document-layers'),
+				emptyState: document.getElementById('empty-state'),
+				toolbar: document.getElementById('toolbar'),
+				toolbarButton: document.getElementById('toolbar-button'),
+				fullscreenButton: document.getElementById('fullscreen-button'),
+				modeButton: document.getElementById('mode-button'),
+				sizeSlider: document.getElementById('size-slider'),
+				sizeValue: document.getElementById('size-value'),
+				colorPicker: document.getElementById('color-picker'),
+				clearButton: document.getElementById('clear-button'),
+				saveButton: document.getElementById('save-button'),
+				documentSelect: document.getElementById('document-select'),
+				layerButton: document.getElementById('layer-button'),
+				settingsButton: document.getElementById('settings-button'),
+				settingsBackdrop: document.getElementById('settings-backdrop'),
+				closeSettings: document.getElementById('close-settings'),
+				linkForm: document.getElementById('link-form'),
+				linkName: document.getElementById('link-name'),
+				linkUrl: document.getElementById('link-url'),
+				linkList: document.getElementById('link-list'),
+				linkCount: document.getElementById('link-count'),
+				status: document.getElementById('status')
+			};
+			const context = elements.canvas.getContext('2d');
+			let settings = loadSettings();
+			let drawing = false;
+			let statusTimer;
+
+			function loadSettings() {
+				try {
+					const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+					return { ...defaults, ...saved, links: Array.isArray(saved.links) ? saved.links : [] };
+				} catch {
+					return { ...defaults };
+				}
+			}
+
+			function persist() {
+				try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); }
+				catch { showStatus('Could not save preferences in this browser.'); }
+			}
+
+			function showStatus(message) {
+				elements.status.textContent = message;
+				elements.status.classList.add('visible');
+				clearTimeout(statusTimer);
+				statusTimer = setTimeout(() => elements.status.classList.remove('visible'), 2400);
+			}
+
+			function embedUrl(rawUrl) {
+				const url = new URL(rawUrl);
+				if (url.hostname === 'docs.google.com' && url.pathname.includes('/presentation/d/')) {
+					if (/\/(edit|preview|present)\/?$/.test(url.pathname)) {
+						url.pathname = url.pathname.replace(/\/(edit|preview|present)\/?$/, '/embed');
+					} else if (!url.pathname.endsWith('/embed')) {
+						url.pathname = url.pathname.replace(/\/$/, '') + '/embed';
+					}
+				}
+				return url.href;
+			}
+
+			function renderLinks() {
+				elements.linkList.replaceChildren();
+				elements.documentLayers.replaceChildren();
+				elements.documentSelect.replaceChildren();
+				elements.linkCount.textContent = String(settings.links.length);
+
+				if (!settings.links.length) {
+					elements.linkList.innerHTML = '<div class="empty-links">No saved documents yet.</div>';
+					elements.documentSelect.add(new Option('No documents', ''));
+					elements.documentSelect.disabled = true;
+					elements.emptyState.hidden = false;
+					settings.selectedId = '';
+					return;
+				}
+
+				elements.documentSelect.disabled = false;
+				elements.documentSelect.add(new Option('Select a document', ''));
+				for (const link of settings.links) {
+					const option = new Option(link.name || new URL(link.url).hostname, link.id);
+					elements.documentSelect.add(option);
+
+					const row = document.createElement('div');
+					row.className = 'link-row';
+					const details = document.createElement('div');
+					details.className = 'link-details';
+					const name = document.createElement('span');
+					name.className = 'link-name';
+					name.textContent = link.name || new URL(link.url).hostname;
+					const address = document.createElement('span');
+					address.className = 'link-url';
+					address.textContent = link.url;
+					const open = document.createElement('a');
+					open.className = 'open-link';
+					open.href = link.url;
+					open.target = '_blank';
+					open.rel = 'noopener noreferrer';
+					open.textContent = 'Open ↗';
+					const remove = document.createElement('button');
+					remove.className = 'remove-link';
+					remove.type = 'button';
+					remove.setAttribute('aria-label', `Remove ${name.textContent}`);
+					remove.title = 'Remove link';
+					remove.textContent = '×';
+					remove.addEventListener('click', () => removeLink(link.id));
+					details.append(name, address);
+					row.append(details, open, remove);
+					elements.linkList.append(row);
+
+					const layer = document.createElement('section');
+					layer.className = 'document-layer';
+					layer.dataset.documentId = link.id;
+					const frame = document.createElement('iframe');
+					frame.src = embedUrl(link.url);
+					frame.title = link.name || `Document from ${new URL(link.url).hostname}`;
+					frame.loading = 'lazy';
+					frame.referrerPolicy = 'strict-origin-when-cross-origin';
+					layer.append(frame);
+					elements.documentLayers.append(layer);
+				}
+
+				if (!settings.links.some(link => link.id === settings.selectedId)) settings.selectedId = '';
+				elements.documentSelect.value = settings.selectedId;
+				updateActiveLayer();
+			}
+
+			function updateActiveLayer() {
+				document.querySelectorAll('.document-layer').forEach(layer => {
+					layer.classList.toggle('active', layer.dataset.documentId === settings.selectedId);
+				});
+				elements.emptyState.hidden = Boolean(settings.selectedId);
+			}
+
+			function removeLink(id) {
+				settings.links = settings.links.filter(link => link.id !== id);
+				if (settings.selectedId === id) settings.selectedId = '';
+				persist();
+				renderLinks();
+			}
+
+			function setCanvasOrder() {
+				elements.canvas.classList.toggle('document-on-top', !settings.canvasOnTop);
+				elements.layerButton.setAttribute('aria-pressed', String(settings.canvasOnTop));
+				elements.layerButton.title = settings.canvasOnTop ? 'Drawing above document' : 'Document above drawing';
+				elements.layerButton.setAttribute('aria-label', settings.canvasOnTop ? 'Show drawing above document' : 'Show document above drawing');
+			}
+
+			function setMode() {
+				elements.modeButton.setAttribute('aria-pressed', String(settings.eraser));
+				elements.modeButton.setAttribute('aria-label', settings.eraser ? 'Switch to pencil' : 'Switch to eraser');
+				elements.modeButton.title = settings.eraser ? 'Eraser selected' : 'Pencil selected';
+				elements.modeButton.innerHTML = settings.eraser
+					? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 16 10-10a2 2 0 0 1 3 0l5 5a2 2 0 0 1 0 3l-7 7H8l-5-5Z"/><path d="m12 7 7 7M3 16h10M14 20h7"/></svg>'
+					: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16 10-10a2 2 0 0 1 3 0l3 3a2 2 0 0 1 0 3L10 22H7l-3-3a2 2 0 0 1 0-3Z"/><path d="m13 7 6 6M4 16h10"/></svg>';
+			}
+
+			function setToolbarHidden(hidden) {
+				settings.toolbarHidden = hidden;
+				elements.toolbar.classList.toggle('is-hidden', hidden);
+				elements.toolbarButton.setAttribute('aria-pressed', String(hidden));
+				elements.toolbarButton.setAttribute('aria-label', hidden ? 'Show toolbar' : 'Hide toolbar');
+				elements.toolbarButton.title = hidden ? 'Show toolbar' : 'Hide toolbar';
+			}
+
+			function resizeCanvas() {
+				const ratio = Math.max(1, window.devicePixelRatio || 1);
+				const previous = document.createElement('canvas');
+				previous.width = elements.canvas.width;
+				previous.height = elements.canvas.height;
+				if (previous.width && previous.height) previous.getContext('2d').drawImage(elements.canvas, 0, 0);
+				elements.canvas.width = Math.round(window.innerWidth * ratio);
+				elements.canvas.height = Math.round(window.innerHeight * ratio);
+				context.setTransform(ratio, 0, 0, ratio, 0, 0);
+				context.lineCap = 'round';
+				context.lineJoin = 'round';
+				if (previous.width && previous.height) {
+					context.drawImage(previous, 0, 0, previous.width / ratio, previous.height / ratio);
+				}
+			}
+
+			function pointFrom(event) {
+				const bounds = elements.canvas.getBoundingClientRect();
+				return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+			}
+
+			elements.canvas.addEventListener('pointerdown', event => {
+				if (event.pointerType !== 'pen' || !settings.canvasOnTop) return;
+				event.preventDefault();
+				elements.canvas.setPointerCapture(event.pointerId);
+				const point = pointFrom(event);
+				drawing = true;
+				context.beginPath();
+				context.moveTo(point.x, point.y);
+				context.globalCompositeOperation = settings.eraser ? 'destination-out' : 'source-over';
+				context.strokeStyle = settings.color;
+				context.lineWidth = settings.size * (event.pressure > 0 ? Math.max(.35, event.pressure) : 1);
+				context.lineTo(point.x + .01, point.y + .01);
+				context.stroke();
+			});
+
+			elements.canvas.addEventListener('pointermove', event => {
+				if (!drawing || event.pointerType !== 'pen') return;
+				const events = typeof event.getCoalescedEvents === 'function' ? event.getCoalescedEvents() : [event];
+				for (const pointEvent of events) {
+					const point = pointFrom(pointEvent);
+					context.lineTo(point.x, point.y);
+					context.stroke();
+					context.beginPath();
+					context.moveTo(point.x, point.y);
+				}
+			});
+
+			function stopDrawing(event) {
+				if (event.pointerType === 'pen') drawing = false;
+			}
+			elements.canvas.addEventListener('pointerup', stopDrawing);
+			elements.canvas.addEventListener('pointercancel', stopDrawing);
+			window.addEventListener('resize', resizeCanvas);
+
+			elements.modeButton.addEventListener('click', () => {
+				settings.eraser = !settings.eraser;
+				setMode();
+				persist();
+			});
+			elements.sizeSlider.addEventListener('input', () => {
+				settings.size = Number(elements.sizeSlider.value);
+				elements.sizeValue.textContent = `${settings.size} px`;
+				persist();
+			});
+			elements.colorPicker.addEventListener('input', () => {
+				settings.color = elements.colorPicker.value;
+				persist();
+			});
+			elements.clearButton.addEventListener('click', () => {
+				context.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
+				showStatus('Canvas cleared');
+			});
+			elements.saveButton.addEventListener('click', () => {
+				const link = document.createElement('a');
+				link.download = `whiteboard-${new Date().toISOString().slice(0, 10)}.png`;
+				link.href = elements.canvas.toDataURL('image/png');
+				link.click();
+			});
+			elements.documentSelect.addEventListener('change', () => {
+				settings.selectedId = elements.documentSelect.value;
+				updateActiveLayer();
+				persist();
+			});
+			elements.layerButton.addEventListener('click', () => {
+				settings.canvasOnTop = !settings.canvasOnTop;
+				setCanvasOrder();
+				persist();
+			});
+
+			function openSettings() {
+				elements.settingsBackdrop.hidden = false;
+				elements.linkName.focus();
+			}
+			function closeSettings() { elements.settingsBackdrop.hidden = true; }
+			elements.settingsButton.addEventListener('click', openSettings);
+			elements.closeSettings.addEventListener('click', closeSettings);
+			elements.settingsBackdrop.addEventListener('click', event => {
+				if (event.target === elements.settingsBackdrop) closeSettings();
+			});
+			document.addEventListener('keydown', event => {
+				if (event.key === 'Escape' && !elements.settingsBackdrop.hidden) closeSettings();
+			});
+
+			elements.linkForm.addEventListener('submit', event => {
+				event.preventDefault();
+				let url;
+				try { url = new URL(elements.linkUrl.value.trim()); }
+				catch { showStatus('Enter a valid web address.'); return; }
+				if (!['http:', 'https:'].includes(url.protocol)) {
+					showStatus('Only http and https links can be added.');
+					return;
+				}
+				const link = {
+					id: (globalThis.crypto && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+					name: elements.linkName.value.trim(),
+					url: url.href
+				};
+				settings.links.push(link);
+				settings.selectedId = link.id;
+				persist();
+				renderLinks();
+				elements.linkForm.reset();
+				elements.linkName.focus();
+				showStatus('Document added');
+			});
+
+			elements.fullscreenButton.addEventListener('click', async () => {
+				try {
+					if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+					else await document.exitFullscreen();
+				} catch { showStatus('Fullscreen is not available in this browser.'); }
+			});
+			document.addEventListener('fullscreenchange', () => {
+				const active = Boolean(document.fullscreenElement);
+				elements.fullscreenButton.setAttribute('aria-label', active ? 'Exit fullscreen' : 'Enter fullscreen');
+				elements.fullscreenButton.title = active ? 'Exit fullscreen' : 'Fullscreen';
+			});
+			elements.toolbarButton.addEventListener('click', () => {
+				setToolbarHidden(!settings.toolbarHidden);
+				persist();
+			});
+
+			elements.sizeSlider.value = String(settings.size);
+			elements.sizeValue.textContent = `${settings.size} px`;
+			elements.colorPicker.value = settings.color;
+			setMode();
+			setCanvasOrder();
+			setToolbarHidden(settings.toolbarHidden);
+			resizeCanvas();
+			renderLinks();
+			persist();
+		})();
+	</script>
+</body>
+</html>
