@@ -619,6 +619,7 @@
       }
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/mathjs@13/dist/math.min.js"></script>
 </head>
 
 <body>
@@ -1000,43 +1001,84 @@
         elements.selectionBox.classList.remove('visible');
       }
 
-      function normalizeExpression(text) {
-        return (text || '')
-          .replace(/×/g, '*')
-          .replace(/÷/g, '/')
-          .replace(/−/g, '-')
-          .replace(/–/g, '-')
-          .replace(/“|”/g, '')
-          .replace(/\s+/g, '')
-          .replace(/[^0-9+\-*/().%^\s]/g, '');
+      function prepareExpression(rawText) {
+        let expr = (rawText || '').trim();
+        if (!expr) return '';
+
+        const superscriptMap = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9' };
+        expr = expr.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g, char => superscriptMap[char] || char);
+        expr = expr.replace(/[×⋅∙∗]/g, '*');
+        expr = expr.replace(/[÷∕]/g, '/');
+        expr = expr.replace(/−|–|—/g, '-');
+        expr = expr.replace(/“|”/g, '');
+        expr = expr.replace(/½/g, '(1/2)');
+        expr = expr.replace(/⅓/g, '(1/3)');
+        expr = expr.replace(/⅔/g, '(2/3)');
+        expr = expr.replace(/¼/g, '(1/4)');
+        expr = expr.replace(/¾/g, '(3/4)');
+        expr = expr.replace(/π/g, 'pi');
+        expr = expr.replace(/(?<=\d)\s*(?:x|X)\s*(?=\d)/g, '*');
+        expr = expr.replace(/(?<=\d)\s*(?:x|X)\s*10\s*\^?\s*([+-]?\d+)/gi, (_, exponent) => `*10^${exponent}`);
+        expr = expr.replace(/(?<=\d)\s*(?:E|e)\s*([+-]?\d+)/g, (_, exponent) => `*10^${exponent}`);
+        expr = expr.replace(/\s+/g, '');
+        expr = expr.replace(/\^\s*\+/g, '^');
+        expr = expr.replace(/(\d)\s*\(\s*(\d+\/\d+)\s*\)/g, '$1*($2)');
+        expr = expr.replace(/\(\s*\+\s*(.+)\)/g, '($1)');
+        return expr;
+      }
+
+      function formatResult(value) {
+        if (typeof value === 'number') {
+          if (!Number.isFinite(value)) return 'undefined';
+          return Number.isInteger(value) ? String(value) : value.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+        }
+        if (typeof value === 'string') return value;
+        if (Array.isArray(value)) return value.join(', ');
+        return String(value);
       }
 
       function evaluateExpression(rawText) {
-        const expression = normalizeExpression(rawText);
+        const expression = prepareExpression(rawText);
         if (!expression) throw new Error('No readable math was detected.');
 
-        const safeExpr = expression.replace(/\^/g, '**');
-        const fn = new Function(`"use strict"; return (${safeExpr});`);
-        const result = Number(fn());
+        const candidates = [
+          expression,
+          expression.replace(/\^/g, '**'),
+          expression.replace(/\*\*\*\*/g, '**'),
+          expression.replace(/\bpi\b/gi, 'pi')
+        ];
 
-        if (!Number.isFinite(result)) {
-          throw new Error('The selected expression could not be evaluated.');
+        let lastError = null;
+
+        for (const candidate of candidates) {
+          try {
+            if (window.math && typeof window.math.evaluate === 'function') {
+              const result = window.math.evaluate(candidate);
+              if (typeof result !== 'undefined') return formatResult(result);
+            }
+
+            const fn = new Function(`"use strict"; return (${candidate});`);
+            const result = fn();
+            if (typeof result !== 'undefined') return formatResult(result);
+          } catch (error) {
+            lastError = error;
+          }
         }
 
-        return Number.isInteger(result) ? result.toString() : result.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+        throw lastError || new Error('The selected expression could not be evaluated.');
       }
 
       async function recognizeMathSelection(x, y, w, h) {
         const cropCanvas = document.createElement('canvas');
         const cropContext = cropCanvas.getContext('2d');
-        const pad = 16;
+        const pad = 18;
         const rectX = Math.max(0, x - pad);
         const rectY = Math.max(0, y - pad);
         const rectW = Math.min(window.innerWidth - rectX, Math.abs(w) + pad * 2);
         const rectH = Math.min(window.innerHeight - rectY, Math.abs(h) + pad * 2);
 
-        cropCanvas.width = Math.max(32, Math.round(rectW));
-        cropCanvas.height = Math.max(32, Math.round(rectH));
+        cropCanvas.width = Math.max(48, Math.round(rectW));
+        cropCanvas.height = Math.max(48, Math.round(rectH));
 
         cropContext.fillStyle = '#ffffff';
         cropContext.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
@@ -1057,7 +1099,7 @@
         try {
           const tesseract = await loadTesseract();
           const result = await tesseract.recognize(cropCanvas, 'eng', {
-            tessedit_char_whitelist: '0123456789+-*/().= %^xX'
+            tessedit_char_whitelist: '0123456789+-*/().= %^xXpiPIeE,⅟½¼⅓⅔¾×÷∞π^'
           });
           const text = result.data.text || '';
           const parsed = text.trim();
@@ -1069,7 +1111,10 @@
           elements.calcOutput.textContent = `${parsed}\n= ${answer}`;
           showStatus('Calculation solved');
         } catch (error) {
-          elements.calcOutput.textContent = error.message || 'Unable to read the handwritten equation.';
+          const fallback = prepareExpression((result && result.data && result.data.text) || '');
+          elements.calcOutput.textContent = fallback
+            ? `Detected: ${fallback}\nCould not evaluate reliably. Try a clearer selection.`
+            : (error.message || 'Unable to read the handwritten equation.');
           showStatus('Could not read that calculation');
         }
       }
