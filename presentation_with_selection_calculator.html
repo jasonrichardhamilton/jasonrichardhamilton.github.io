@@ -975,20 +975,27 @@
 			}
 
 			function cropRegionCanvas(rect) {
-				const bounds = elements.canvas.getBoundingClientRect();
-				const sx = elements.canvas.width / bounds.width, sy = elements.canvas.height / bounds.height;
-				const pad = 12;
-				const w = Math.round((rect.w + pad * 2) * sx), h = Math.round((rect.h + pad * 2) * sy);
-				const out = document.createElement('canvas');
-				out.width = w; out.height = h;
-				const c = out.getContext('2d', { willReadFrequently: true });
-				c.fillStyle = '#fff';
-				c.fillRect(0, 0, w, h);
-				c.drawImage(elements.canvas,
-					(rect.x - bounds.left - pad) * sx, (rect.y - bounds.top - pad) * sy, w, h,
-					0, 0, w, h);
-				return out;
-			}
+	const bounds = elements.canvas.getBoundingClientRect();
+	const sx = elements.canvas.width / bounds.width, sy = elements.canvas.height / bounds.height;
+	const pad = 12;
+	const srcW = Math.round((rect.w + pad * 2) * sx), srcH = Math.round((rect.h + pad * 2) * sy);
+
+	// Shrink so the longest side is at most 1000 px
+	const scale = Math.min(1, 1000 / Math.max(srcW, srcH));
+	const w = Math.max(1, Math.round(srcW * scale)), h = Math.max(1, Math.round(srcH * scale));
+
+	const out = document.createElement('canvas');
+	out.width = w; out.height = h;
+	const c = out.getContext('2d', { willReadFrequently: true });
+	c.fillStyle = '#fff';
+	c.fillRect(0, 0, w, h);
+	c.imageSmoothingQuality = 'high';
+	c.drawImage(elements.canvas,
+		(rect.x - bounds.left - pad) * sx, (rect.y - bounds.top - pad) * sy, srcW, srcH,
+		0, 0, w, h);
+	return out;
+}
+
 
 			// Split a cropped canvas into separate handwriting lines (data URLs)
 			function splitLines(source) {
@@ -1001,7 +1008,7 @@
 						if (data[i] + data[i + 1] + data[i + 2] < 560) { inked[y] = true; break; }
 					}
 				}
-				const minGap = Math.max(10, Math.round(h * 0.03));
+				const minGap = Math.max(6, Math.round(h * 0.03));
 				const bands = [];
 				let start = null, gap = 0;
 				for (let y = 0; y < h; y++) {
@@ -1010,25 +1017,32 @@
 				}
 				if (start !== null) bands.push([start, h - 1]);
 
-				return bands.filter(([a, b]) => b - a > 6).map(([a, b]) => {
-					const pad = 20, lineH = b - a + 1;
-					const line = document.createElement('canvas');
-					line.width = w; line.height = lineH + pad * 2;
-					const c = line.getContext('2d');
-					c.fillStyle = '#fff';
-					c.fillRect(0, 0, line.width, line.height);
-					c.drawImage(source, 0, a, w, lineH, 0, pad, w, lineH);
-					return line.toDataURL('image/png');
-				});
+				return bands.filter(([a, b]) => b - a > 4).map(([a, b]) => {
+	const pad = 12, lineH = b - a + 1;
+	const scale = Math.min(1, 640 / Math.max(w, lineH + pad * 2));
+	const line = document.createElement('canvas');
+	line.width = Math.max(1, Math.round(w * scale));
+	line.height = Math.max(1, Math.round((lineH + pad * 2) * scale));
+	const c = line.getContext('2d');
+	c.fillStyle = '#fff';
+	c.fillRect(0, 0, line.width, line.height);
+	c.drawImage(source, 0, a, w, lineH, 0, Math.round(pad * scale), line.width, Math.round(lineH * scale));
+	return line.toDataURL('image/png');
+});
+
 			}
 
 			async function getOcr() {
-				if (ocrPipeline) return ocrPipeline;
-				showStatus('Loading handwriting model (first time only)…', 60000);
-				const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3');
-				ocrPipeline = await pipeline('image-to-text', 'Xenova/trocr-small-handwritten');
-				return ocrPipeline;
-			}
+	if (ocrPipeline) return ocrPipeline;
+	showStatus('Loading handwriting model (first time only)…', 60000);
+	const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3');
+	env.backends.onnx.wasm.numThreads = 1;   // lower memory use
+	ocrPipeline = await pipeline('image-to-text', 'Xenova/trocr-small-handwritten', {
+		dtype: 'q8',        // 8-bit quantized weights, roughly 4x smaller
+		device: 'wasm'
+	});
+	return ocrPipeline;
+}
 
 			function normalizeOcr(line) {
 				return line
@@ -1100,8 +1114,14 @@
 					card.style.top = Math.max(8, Math.min(rect.y + rect.h + 10, window.innerHeight - 140)) + 'px';
 					showStatus('Done');
 				} catch (err) {
-					showStatus('Recognition failed: ' + err.message, 5000);
-					console.error(err);
+					if (err instanceof RangeError) ocrPipeline = null;   // reload the model on the next try
+	showStatus(
+		err instanceof RangeError
+			? 'Out of memory. Select a smaller area (one or two lines) and try again.'
+			: 'Recognition failed: ' + err.message,
+		6000
+	);
+	console.error(err);
 				}
 			}
 
