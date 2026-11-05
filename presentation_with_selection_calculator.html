@@ -113,52 +113,6 @@
 			pointer-events: none;
 		}
 
-		#canvas-layer.selecting {
-			cursor: crosshair;
-		}
-
-		#selection-box {
-			position: fixed;
-			z-index: 25;
-			display: none;
-			border: 2px dashed var(--accent);
-			background: rgba(23, 107, 88, .08);
-			pointer-events: none;
-		}
-
-		#result-card {
-			position: fixed;
-			z-index: 35;
-			display: none;
-			max-width: 320px;
-			padding: 12px 14px;
-			border: 1px solid #c6e0d4;
-			border-radius: 8px;
-			background: #fff;
-			box-shadow: var(--shadow);
-			font-size: 14px;
-		}
-
-		#result-card .recognized {
-			color: var(--muted);
-			font-family: monospace;
-			word-break: break-word;
-		}
-
-		#result-card .answer {
-			margin-top: 6px;
-			font: 600 22px Georgia, serif;
-			color: var(--accent);
-		}
-
-		#result-card .card-close {
-			float: right;
-			border: 0;
-			background: transparent;
-			font-size: 18px;
-			cursor: pointer;
-		}
-
 		#empty-state {
 			position: absolute;
 			left: 50%;
@@ -631,12 +585,6 @@
 		<div id="empty-state"><strong></strong><span></span></div>
 		<canvas id="canvas-layer" aria-label="Apple Pencil drawing canvas"></canvas>
 		<div id="eraser-cursor" aria-hidden="true"></div>
-		<div id="selection-box" aria-hidden="true"></div>
-		<div id="result-card" role="status">
-			<button class="card-close" type="button" aria-label="Close result">×</button>
-			<div class="recognized"></div>
-			<div class="answer"></div>
-		</div>
 	</main>
 
 	<nav id="toolbar" aria-label="Whiteboard tools">
@@ -665,12 +613,6 @@
 			title="Save canvas as PNG">
 			<svg viewBox="0 0 24 24" aria-hidden="true">
 				<path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4" />
-			</svg>
-		</button>
-		<button id="solve-button" class="tool-button" type="button" aria-label="Select handwriting and solve"
-			title="Select handwriting and solve" aria-pressed="false">
-			<svg viewBox="0 0 24 24" aria-hidden="true">
-				<path d="M4 4h4M16 4h4M4 20h4M16 20h4M4 4v4M20 4v4M4 16v4M20 16v4M9 12h6M12 9v6" />
 			</svg>
 		</button>
 		<div class="divider" aria-hidden="true"></div>
@@ -734,7 +676,6 @@
 	</div>
 	<div id="status" role="status" aria-live="polite"></div>
 
-	<script src="https://cdn.jsdelivr.net/npm/mathjs@12/lib/browser/math.js"></script>
 	<script>
 		(() => {
 			const STORAGE_KEY = 'slate-whiteboard-settings-v1';
@@ -753,9 +694,6 @@
 				colorPicker: document.getElementById('color-picker'),
 				clearButton: document.getElementById('clear-button'),
 				saveButton: document.getElementById('save-button'),
-				solveButton: document.getElementById('solve-button'),
-				selectionBox: document.getElementById('selection-box'),
-				resultCard: document.getElementById('result-card'),
 				documentSelect: document.getElementById('document-select'),
 				layerButton: document.getElementById('layer-button'),
 				settingsButton: document.getElementById('settings-button'),
@@ -773,10 +711,6 @@
 			let drawing = false;
 			let lastPenPosition = null;
 			let statusTimer;
-			let selectMode = false;
-			let selStart = null;
-			let selRect = null;
-			let ocrPipeline = null;
 
 			function loadSettings() {
 				try {
@@ -792,11 +726,11 @@
 				catch { showStatus('Could not save preferences in this browser.'); }
 			}
 
-			function showStatus(message, duration = 2400) {
+			function showStatus(message) {
 				elements.status.textContent = message;
 				elements.status.classList.add('visible');
 				clearTimeout(statusTimer);
-				statusTimer = setTimeout(() => elements.status.classList.remove('visible'), duration);
+				statusTimer = setTimeout(() => elements.status.classList.remove('visible'), 2400);
 			}
 
 			function embedUrl(rawUrl) {
@@ -959,181 +893,7 @@
 				renderEraserCursor(lastPenPosition);
 			}
 
-			// ---------- Handwriting selection + solve ----------
-			function setSelectMode(on) {
-				selectMode = on;
-				selStart = null;
-				selRect = null;
-				elements.selectionBox.style.display = 'none';
-				elements.canvas.classList.toggle('selecting', on);
-				elements.solveButton.setAttribute('aria-pressed', String(on));
-				if (on) {
-					elements.resultCard.style.display = 'none';
-					elements.eraserCursor.classList.remove('visible');
-					showStatus('Drag a box around the handwritten calculation', 3500);
-				}
-			}
-
-			function cropRegionCanvas(rect) {
-	const bounds = elements.canvas.getBoundingClientRect();
-	const sx = elements.canvas.width / bounds.width, sy = elements.canvas.height / bounds.height;
-	const pad = 12;
-	const srcW = Math.round((rect.w + pad * 2) * sx), srcH = Math.round((rect.h + pad * 2) * sy);
-
-	// Shrink so the longest side is at most 1000 px
-	const scale = Math.min(1, 1000 / Math.max(srcW, srcH));
-	const w = Math.max(1, Math.round(srcW * scale)), h = Math.max(1, Math.round(srcH * scale));
-
-	const out = document.createElement('canvas');
-	out.width = w; out.height = h;
-	const c = out.getContext('2d', { willReadFrequently: true });
-	c.fillStyle = '#fff';
-	c.fillRect(0, 0, w, h);
-	c.imageSmoothingQuality = 'high';
-	c.drawImage(elements.canvas,
-		(rect.x - bounds.left - pad) * sx, (rect.y - bounds.top - pad) * sy, srcW, srcH,
-		0, 0, w, h);
-	return out;
-}
-
-
-			// Split a cropped canvas into separate handwriting lines (data URLs)
-			function splitLines(source) {
-				const w = source.width, h = source.height;
-				const data = source.getContext('2d').getImageData(0, 0, w, h).data;
-				const inked = new Array(h).fill(false);
-				for (let y = 0; y < h; y++) {
-					for (let x = 0; x < w; x++) {
-						const i = (y * w + x) * 4;
-						if (data[i] + data[i + 1] + data[i + 2] < 560) { inked[y] = true; break; }
-					}
-				}
-				const minGap = Math.max(6, Math.round(h * 0.03));
-				const bands = [];
-				let start = null, gap = 0;
-				for (let y = 0; y < h; y++) {
-					if (inked[y]) { if (start === null) start = y; gap = 0; }
-					else if (start !== null && ++gap >= minGap) { bands.push([start, y - gap]); start = null; gap = 0; }
-				}
-				if (start !== null) bands.push([start, h - 1]);
-
-				return bands.filter(([a, b]) => b - a > 4).map(([a, b]) => {
-	const pad = 12, lineH = b - a + 1;
-	const scale = Math.min(1, 640 / Math.max(w, lineH + pad * 2));
-	const line = document.createElement('canvas');
-	line.width = Math.max(1, Math.round(w * scale));
-	line.height = Math.max(1, Math.round((lineH + pad * 2) * scale));
-	const c = line.getContext('2d');
-	c.fillStyle = '#fff';
-	c.fillRect(0, 0, line.width, line.height);
-	c.drawImage(source, 0, a, w, lineH, 0, Math.round(pad * scale), line.width, Math.round(lineH * scale));
-	return line.toDataURL('image/png');
-});
-
-			}
-
-			async function getOcr() {
-	if (ocrPipeline) return ocrPipeline;
-	showStatus('Loading handwriting model (first time only)…', 60000);
-	const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3');
-	env.backends.onnx.wasm.numThreads = 1;   // lower memory use
-	ocrPipeline = await pipeline('image-to-text', 'Xenova/trocr-small-handwritten', {
-		dtype: 'q8',        // 8-bit quantized weights, roughly 4x smaller
-		device: 'wasm'
-	});
-	return ocrPipeline;
-}
-
-			function normalizeOcr(line) {
-				return line
-					.replace(/[xX×]\s*(?=[\d(])/g, '*')
-					.replace(/(?<=[\d)])\s*[xX×]/g, '*')
-					.replace(/[÷:]/g, '/')
-					.replace(/[−–—]/g, '-')
-					.replace(/[Oo](?=\d)|(?<=\d)[Oo]/g, '0')
-					.replace(/[lI|](?=\d)|(?<=\d)[lI|]/g, '1')
-					.replace(/\s+/g, ' ')
-					.trim();
-			}
-
-			function latexToMath(s) {
-				return s
-					.replace(/\\\(|\\\)|\\\[|\\\]|\$/g, '')
-					.replace(/\\left|\\right/g, '')
-					.replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, '(($1)/($2))')
-					.replace(/\\sqrt\s*\{([^{}]*)\}/g, 'sqrt($1)')
-					.replace(/\\(times|cdot)/g, '*')
-					.replace(/\\div/g, '/')
-					.replace(/\\pi/g, 'pi')
-					.replace(/\^\s*\{([^{}]*)\}/g, '^($1)')
-					.replace(/\{/g, '(').replace(/\}/g, ')')
-					.replace(/[×·]/g, '*').replace(/÷/g, '/').replace(/−/g, '-')
-					.replace(/(\d)\s*\(/g, '$1*(')
-					.trim();
-			}
-
-			function computeAnswer(raw) {
-				const lines = raw.split(/\n|\\\\/).map(l => l.trim()).filter(Boolean);
-				const results = [];
-				for (const line of lines) {
-					let expr = latexToMath(line);
-					expr = expr.includes('=') ? expr.split('=')[0] : expr;
-					if (!expr) continue;
-					try {
-						const value = math.evaluate(expr);
-						if (typeof value === 'number' || value?.isBigNumber || value?.isFraction)
-							results.push({ expr, value: math.format(value, { precision: 10 }) });
-					} catch { /* not computable; skip */ }
-				}
-				return results;
-			}
-
-			async function solveRegion(rect) {
-				try {
-					if (typeof math === 'undefined') throw new Error('math.js did not load');
-					const ocr = await getOcr();
-					showStatus('Reading handwriting…', 30000);
-					const lines = splitLines(cropRegionCanvas(rect));
-					if (!lines.length) { showStatus('No handwriting found in that box.'); return; }
-
-					const read = [];
-					for (const url of lines) {
-						const out = await ocr(url);
-						read.push(normalizeOcr(out[0]?.generated_text || ''));
-					}
-					const text = read.join('\n');
-					const results = computeAnswer(text);
-
-					const card = elements.resultCard;
-					card.querySelector('.recognized').textContent = 'Read: ' + (text.replace(/\n/g, '  |  ') || '(nothing)');
-					card.querySelector('.answer').textContent = results.length
-						? results.map(r => `= ${r.value}`).join('   ')
-						: 'Could not compute an answer';
-					card.style.display = 'block';
-					card.style.left = Math.max(8, Math.min(rect.x, window.innerWidth - 340)) + 'px';
-					card.style.top = Math.max(8, Math.min(rect.y + rect.h + 10, window.innerHeight - 140)) + 'px';
-					showStatus('Done');
-				} catch (err) {
-					if (err instanceof RangeError) ocrPipeline = null;   // reload the model on the next try
-	showStatus(
-		err instanceof RangeError
-			? 'Out of memory. Select a smaller area (one or two lines) and try again.'
-			: 'Recognition failed: ' + err.message,
-		6000
-	);
-	console.error(err);
-				}
-			}
-
 			elements.canvas.addEventListener('pointerdown', event => {
-				if (selectMode && settings.canvasOnTop) {
-					event.preventDefault();
-					elements.canvas.setPointerCapture(event.pointerId);
-					selStart = { x: event.clientX, y: event.clientY };
-					selRect = null;
-					elements.resultCard.style.display = 'none';
-					return;
-				}
 				if (event.pointerType !== 'pen' || !settings.canvasOnTop) return;
 				event.preventDefault();
 				elements.canvas.setPointerCapture(event.pointerId);
@@ -1150,18 +910,6 @@
 			});
 
 			elements.canvas.addEventListener('pointermove', event => {
-				if (selectMode) {
-					if (!selStart) return;
-					selRect = {
-						x: Math.min(selStart.x, event.clientX), y: Math.min(selStart.y, event.clientY),
-						w: Math.abs(event.clientX - selStart.x), h: Math.abs(event.clientY - selStart.y)
-					};
-					Object.assign(elements.selectionBox.style, {
-						display: 'block', left: selRect.x + 'px', top: selRect.y + 'px',
-						width: selRect.w + 'px', height: selRect.h + 'px'
-					});
-					return;
-				}
 				updateEraserCursor(event);
 				if (!drawing || event.pointerType !== 'pen') return;
 				const events = typeof event.getCoalescedEvents === 'function' ? event.getCoalescedEvents() : [event];
@@ -1175,18 +923,7 @@
 				}
 			});
 
-			async function finishSelection() {
-				const rect = selRect;
-				selStart = null;
-				selRect = null;
-				elements.selectionBox.style.display = 'none';
-				if (!rect || rect.w < 10 || rect.h < 10) return;
-				setSelectMode(false);              // return to drawing after one selection
-				await solveRegion(rect);
-			}
-
 			function stopDrawing(event) {
-				if (selectMode) { if (selStart) finishSelection(); return; }
 				if (event.pointerType === 'pen') drawing = false;
 			}
 			elements.canvas.addEventListener('pointerup', stopDrawing);
@@ -1196,11 +933,6 @@
 				elements.eraserCursor.classList.remove('visible');
 			});
 			window.addEventListener('resize', resizeCanvas);
-
-			elements.solveButton.addEventListener('click', () => setSelectMode(!selectMode));
-			elements.resultCard.querySelector('.card-close').addEventListener('click', () => {
-				elements.resultCard.style.display = 'none';
-			});
 
 			elements.modeButton.addEventListener('click', () => {
 				settings.eraser = !settings.eraser;
@@ -1219,7 +951,6 @@
 			});
 			elements.clearButton.addEventListener('click', () => {
 				context.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
-				elements.resultCard.style.display = 'none';
 				showStatus('Canvas cleared');
 			});
 			elements.saveButton.addEventListener('click', () => {
@@ -1235,10 +966,10 @@
 			});
 			elements.layerButton.addEventListener('click', () => {
 				settings.canvasOnTop = !settings.canvasOnTop;
-				if (!settings.canvasOnTop && selectMode) setSelectMode(false);
 				setCanvasOrder();
 				persist();
 			});
+
 			function openSettings() {
 				elements.settingsBackdrop.hidden = false;
 				elements.linkName.focus();
@@ -1250,10 +981,7 @@
 				if (event.target === elements.settingsBackdrop) closeSettings();
 			});
 			document.addEventListener('keydown', event => {
-				if (event.key === 'Escape') {
-					if (!elements.settingsBackdrop.hidden) closeSettings();
-					else if (selectMode) setSelectMode(false);
-				}
+				if (event.key === 'Escape' && !elements.settingsBackdrop.hidden) closeSettings();
 			});
 
 			elements.linkForm.addEventListener('submit', event => {
@@ -1309,5 +1037,3 @@
 </body>
 
 </html>
-
-			
