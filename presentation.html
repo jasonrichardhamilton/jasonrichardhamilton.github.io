@@ -893,13 +893,6 @@
 				renderEraserCursor(lastPenPosition);
 			}
 			
-			layerButton.addEventListener('click', () => {
-			    const isPressed = layerButton.getAttribute('aria-pressed') === 'true';
-	   	 		if (isPressed === false) {
-        		context.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
-				showStatus('Canvas cleared');
-			});
-			
 			elements.canvas.addEventListener('pointerdown', event => {
 				if (event.pointerType !== 'pen' || !settings.canvasOnTop) return;
 				event.preventDefault();
