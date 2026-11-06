@@ -966,6 +966,7 @@
 			});
 			elements.layerButton.addEventListener('click', () => {
 				settings.canvasOnTop = !settings.canvasOnTop;
+				context.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
 				setCanvasOrder();
 				persist();
 			});
