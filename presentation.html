@@ -621,13 +621,13 @@
 		</select>
 		<button id="layer-button" class="tool-button" type="button" aria-label="Show drawing above document"
 			title="Drawing above document" aria-pressed="true">
-			<svg viewBox="0 0 24 24" aria-hidden="true">
-				<path d="M4 5h11v14H4zM9 9h11v10H9M7 8h5M12 12h5" />
-			</svg>
+			<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M4 5h11v14H4zM9 9h11v10H9M7 8h5M12 12h5" />
+</svg>
 		</button>
 		<button id="settings-button" class="tool-button" type="button" aria-label="Settings and links"
 			title="Settings and links">
-			<svg viewBox="0 0 24 24" aria-hidden="true">
+			<svg viewBox="0 0 24 24" width="48" height="48" aria-hidden="true">
 				<circle cx="12" cy="12" r="3" />
 				<path
 					d="m19.4 15 .1.1 1.2 1-1.2 2.1-1.5-.6a8 8 0 0 1-1.5.9l-.2 1.6h-2.5l-.3-1.6a8 8 0 0 1-1.5-.9l-1.5.6-1.2-2.1 1.2-1a7 7 0 0 1 0-1.8l-1.2-1 1.2-2.1 1.5.6a8 8 0 0 1 1.5-.9l.3-1.6h2.5l.2 1.6a8 8 0 0 1 1.5.9l1.5-.6 1.2 2.1-1.2 1a7 7 0 0 1-.1 1.8Z"
@@ -892,6 +892,13 @@
 				lastPenPosition = { clientX: event.clientX, clientY: event.clientY, pressure: event.pressure || 0 };
 				renderEraserCursor(lastPenPosition);
 			}
+
+			layerButton.addEventListener('click', () => {
+			    const isPressed = layerButton.getAttribute('aria-pressed') === 'true';
+	   	 		if (isPressed === false) {
+        		context.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
+				showStatus('Canvas cleared');
+			});
 
 			elements.canvas.addEventListener('pointerdown', event => {
 				if (event.pointerType !== 'pen' || !settings.canvasOnTop) return;
