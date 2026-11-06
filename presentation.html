@@ -98,6 +98,24 @@
 			display: block;
 		}
 
+		#red-pointer {
+			position: fixed;
+			z-index: 21;
+			display: none;
+			width: 14px;
+			height: 14px;
+			border: 2px solid #fff;
+			border-radius: 50%;
+			background: #e32636;
+			box-shadow: 0 1px 5px rgba(0, 0, 0, .45);
+			pointer-events: none;
+			transform: translate(-50%, -50%);
+		}
+
+		#red-pointer.visible {
+			display: block;
+		}
+
 		#canvas-layer {
 			z-index: 10;
 			display: block;
@@ -585,6 +603,7 @@
 		<div id="empty-state"><strong></strong><span></span></div>
 		<canvas id="canvas-layer" aria-label="Apple Pencil drawing canvas"></canvas>
 		<div id="eraser-cursor" aria-hidden="true"></div>
+		<div id="red-pointer" aria-hidden="true"></div>
 	</main>
 
 	<nav id="toolbar" aria-label="Whiteboard tools">
@@ -683,6 +702,8 @@
 			const elements = {
 				canvas: document.getElementById('canvas-layer'),
 				eraserCursor: document.getElementById('eraser-cursor'),
+				redPointer: document.getElementById('red-pointer'),
+				workspace: document.getElementById('workspace'),
 				documentLayers: document.getElementById('document-layers'),
 				emptyState: document.getElementById('empty-state'),
 				toolbar: document.getElementById('toolbar'),
@@ -931,6 +952,14 @@
 			elements.canvas.addEventListener('pointerleave', () => {
 				lastPenPosition = null;
 				elements.eraserCursor.classList.remove('visible');
+			});
+			elements.workspace.addEventListener('pointermove', event => {
+				elements.redPointer.style.left = `${event.clientX}px`;
+				elements.redPointer.style.top = `${event.clientY}px`;
+				elements.redPointer.classList.add('visible');
+			});
+			elements.workspace.addEventListener('pointerleave', () => {
+				elements.redPointer.classList.remove('visible');
 			});
 			window.addEventListener('resize', resizeCanvas);
 
