@@ -58,6 +58,14 @@
 			background-size: 22px 22px;
 		}
 
+		#workspace.red-pointer-active::after {
+			position: absolute;
+			z-index: 20;
+			inset: 0;
+			content: "";
+			cursor: none;
+		}
+
 		.document-layer,
 		#canvas-layer {
 			position: absolute;
@@ -607,6 +615,13 @@
 	</main>
 
 	<nav id="toolbar" aria-label="Whiteboard tools">
+		<button id="pointer-button" class="tool-button" type="button" aria-label="Turn on red pointer"
+			title="Red pointer" aria-pressed="false">
+			<svg viewBox="0 0 24 24" aria-hidden="true">
+				<circle cx="12" cy="12" r="7" />
+				<circle cx="12" cy="12" r="2" />
+			</svg>
+		</button>
 		<button id="mode-button" class="tool-button" type="button" aria-label="Switch to eraser" title="Pencil / eraser"
 			aria-pressed="false">
 			<svg viewBox="0 0 24 24" aria-hidden="true">
@@ -641,8 +656,8 @@
 		<button id="layer-button" class="tool-button" type="button" aria-label="Show drawing above document"
 			title="Drawing above document" aria-pressed="true">
 			<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2">
-    <path d="M4 5h11v14H4zM9 9h11v10H9M7 8h5M12 12h5" />
-</svg>
+				<path d="M4 5h11v14H4zM9 9h11v10H9M7 8h5M12 12h5" />
+			</svg>
 		</button>
 		<button id="settings-button" class="tool-button" type="button" aria-label="Settings and links"
 			title="Settings and links">
@@ -698,11 +713,12 @@
 	<script>
 		(() => {
 			const STORAGE_KEY = 'slate-whiteboard-settings-v1';
-			const defaults = { links: [], selectedId: '', canvasOnTop: true, eraser: false, size: 3, color: '#202923', toolbarHidden: false };
+			const defaults = { links: [], selectedId: '', canvasOnTop: true, eraser: false, redPointer: false, size: 3, color: '#202923', toolbarHidden: false };
 			const elements = {
 				canvas: document.getElementById('canvas-layer'),
 				eraserCursor: document.getElementById('eraser-cursor'),
 				redPointer: document.getElementById('red-pointer'),
+				pointerButton: document.getElementById('pointer-button'),
 				workspace: document.getElementById('workspace'),
 				documentLayers: document.getElementById('document-layers'),
 				emptyState: document.getElementById('empty-state'),
@@ -854,6 +870,16 @@
 				elements.layerButton.setAttribute('aria-label', settings.canvasOnTop ? 'Show drawing above document' : 'Show document above drawing');
 			}
 
+			function setRedPointer(enabled) {
+				settings.redPointer = enabled;
+				elements.workspace.classList.toggle('red-pointer-active', enabled);
+				elements.pointerButton.setAttribute('aria-pressed', String(enabled));
+				elements.pointerButton.setAttribute('aria-label', enabled ? 'Turn off red pointer' : 'Turn on red pointer');
+				elements.pointerButton.title = enabled ? 'Turn off red pointer' : 'Red pointer';
+				if (enabled) elements.eraserCursor.classList.remove('visible');
+				else elements.redPointer.classList.remove('visible');
+			}
+
 			function setMode() {
 				elements.modeButton.setAttribute('aria-pressed', String(settings.eraser));
 				elements.modeButton.setAttribute('aria-label', settings.eraser ? 'Switch to pencil' : 'Switch to eraser');
@@ -895,11 +921,11 @@
 			}
 
 			function eraserPressureScale(pressure) {
-				return Math.max(1, pressure*20);
+				return Math.max(1, pressure * 20);
 			}
 
 			function renderEraserCursor(position) {
-				if (!settings.eraser || !settings.canvasOnTop) return;
+				if (!settings.eraser || !settings.canvasOnTop || settings.redPointer) return;
 				const diameter = settings.size * eraserPressureScale(position.pressure);
 				elements.eraserCursor.style.width = `${diameter}px`;
 				elements.eraserCursor.style.height = `${diameter}px`;
@@ -913,9 +939,9 @@
 				lastPenPosition = { clientX: event.clientX, clientY: event.clientY, pressure: event.pressure || 0 };
 				renderEraserCursor(lastPenPosition);
 			}
-			
+
 			elements.canvas.addEventListener('pointerdown', event => {
-				if (event.pointerType !== 'pen' || !settings.canvasOnTop) return;
+				if (settings.redPointer || event.pointerType !== 'pen' || !settings.canvasOnTop) return;
 				event.preventDefault();
 				elements.canvas.setPointerCapture(event.pointerId);
 				updateEraserCursor(event);
@@ -932,6 +958,10 @@
 
 			elements.canvas.addEventListener('pointermove', event => {
 				updateEraserCursor(event);
+				if (settings.redPointer) {
+					drawing = false;
+					return;
+				}
 				if (!drawing || event.pointerType !== 'pen') return;
 				const events = typeof event.getCoalescedEvents === 'function' ? event.getCoalescedEvents() : [event];
 				for (const pointEvent of events) {
@@ -954,6 +984,7 @@
 				elements.eraserCursor.classList.remove('visible');
 			});
 			elements.workspace.addEventListener('pointermove', event => {
+				if (!settings.redPointer) return;
 				elements.redPointer.style.left = `${event.clientX}px`;
 				elements.redPointer.style.top = `${event.clientY}px`;
 				elements.redPointer.classList.add('visible');
@@ -963,6 +994,10 @@
 			});
 			window.addEventListener('resize', resizeCanvas);
 
+			elements.pointerButton.addEventListener('click', () => {
+				setRedPointer(!settings.redPointer);
+				persist();
+			});
 			elements.modeButton.addEventListener('click', () => {
 				settings.eraser = !settings.eraser;
 				setMode();
@@ -1056,6 +1091,7 @@
 			elements.sizeSlider.value = String(settings.size);
 			elements.sizeValue.textContent = `${settings.size} px`;
 			elements.colorPicker.value = settings.color;
+			setRedPointer(settings.redPointer);
 			setMode();
 			setCanvasOrder();
 			setToolbarHidden(settings.toolbarHidden);
